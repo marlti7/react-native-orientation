@@ -223,6 +223,12 @@ RCT_EXPORT_METHOD(unlockAllOrientations)
 //  delegate.orientation = 3;
 }
 
+RCT_EXPORT_METHOD(enableListener)
+{
+//  AppDelegate *delegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
+//  delegate.orientation = 3;
+}
+
 - (NSDictionary *)constantsToExport
 {
 
