@@ -7,7 +7,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.hardware.SensorManager;
+import android.provider.Settings;
 import android.util.Log;
+import android.view.OrientationEventListener;
 
 import com.facebook.common.logging.FLog;
 import com.facebook.react.bridge.Arguments;
@@ -25,12 +28,15 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
-public class OrientationModule extends ReactContextBaseJavaModule implements LifecycleEventListener{
+public class OrientationModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
     final BroadcastReceiver receiver;
+
+    final MyOrientationDetector myOrientationDetector;
+    private final ReactApplicationContext ctx;
 
     public OrientationModule(ReactApplicationContext reactContext) {
         super(reactContext);
-        final ReactApplicationContext ctx = reactContext;
+        ctx = reactContext;
 
         receiver = new BroadcastReceiver() {
             @Override
@@ -44,13 +50,69 @@ public class OrientationModule extends ReactContextBaseJavaModule implements Lif
                 params.putString("orientation", orientationValue);
                 if (ctx.hasActiveCatalystInstance()) {
                     ctx
-                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                    .emit("orientationDidChange", params);
+                            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                            .emit("orientationDidChange", params);
                 }
             }
         };
         ctx.addLifecycleEventListener(this);
+
+        myOrientationDetector = new MyOrientationDetector(reactContext, SensorManager.SENSOR_DELAY_UI);
+
+
     }
+
+
+    @ReactMethod
+    public void enableListener(boolean isEnable) {
+        if (isEnable) {
+            myOrientationDetector.enable();
+        } else {
+            myOrientationDetector.disable();
+        }
+    }
+
+
+    class MyOrientationDetector extends OrientationEventListener {
+
+        private int  orientationType=0;
+
+        public MyOrientationDetector(Context context) {
+            super(context);
+        }
+
+        public MyOrientationDetector(Context context, int rate) {
+            super(context, rate);
+        }
+
+        @Override
+        public void onOrientationChanged(int orientation) {
+            boolean isScreenChange = false;
+            try {
+                isScreenChange = Settings.System.getInt(getCurrentActivity().getContentResolver(), Settings.System.ACCELEROMETER_ROTATION) == 1;
+            } catch (Exception e) {
+
+            }
+
+            if ((orientation > 70 && orientation < 110)) {
+                if (orientationType!=2 && isScreenChange) {
+                    lockToLandscapeRight();
+                    orientationType=2;
+                }
+            } else if ((orientation > 250 && orientation < 290) ) {
+                if (orientationType!=1 && isScreenChange) {
+                    lockToLandscapeLeft();
+                    orientationType=1;
+                }
+            } else if ((orientation > 340 && orientation < 360) || (orientation > 0 && orientation < 20)) {
+                if (orientationType!=0 && isScreenChange) {
+                    lockToPortrait();
+                    orientationType=0;
+                }
+            }
+        }
+    }
+
 
     @Override
     public String getName() {
@@ -116,7 +178,8 @@ public class OrientationModule extends ReactContextBaseJavaModule implements Lif
     }
 
     @Override
-    public @Nullable Map<String, Object> getConstants() {
+    public @Nullable
+    Map<String, Object> getConstants() {
         HashMap<String, Object> constants = new HashMap<String, Object>();
         int orientationInt = getReactApplicationContext().getResources().getConfiguration().orientation;
 
@@ -129,6 +192,10 @@ public class OrientationModule extends ReactContextBaseJavaModule implements Lif
 
         return constants;
     }
+
+
+    private boolean isLand = false;
+
 
     private String getOrientationString(int orientation) {
         if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
@@ -152,15 +219,14 @@ public class OrientationModule extends ReactContextBaseJavaModule implements Lif
         }
         activity.registerReceiver(receiver, new IntentFilter("onConfigurationChanged"));
     }
+
     @Override
     public void onHostPause() {
         final Activity activity = getCurrentActivity();
         if (activity == null) return;
-        try
-        {
+        try {
             activity.unregisterReceiver(receiver);
-        }
-        catch (java.lang.IllegalArgumentException e) {
+        } catch (java.lang.IllegalArgumentException e) {
             FLog.e(ReactConstants.TAG, "receiver already unregistered", e);
         }
     }
@@ -168,5 +234,5 @@ public class OrientationModule extends ReactContextBaseJavaModule implements Lif
     @Override
     public void onHostDestroy() {
 
-        }
     }
+}
