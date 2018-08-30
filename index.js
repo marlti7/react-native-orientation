@@ -54,6 +54,9 @@ module.exports = {
   unlockAllOrientations() {
     Orientation.unlockAllOrientations();
   },
+  enableListener(isEnable){
+    Orientation.enableListener(isEnable);
+  },
 
   addOrientationListener(cb) {
     var key = getKey(cb);
